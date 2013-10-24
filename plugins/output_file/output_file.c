@@ -105,33 +105,18 @@ int check_for_filename(const struct dirent *entry)
 {
     int rc;
 
-    int year, month, day, hour, minute, second;
     unsigned long long number;
 
     /*
      * try to scan the string using scanf
      * I would like to use a define for this format string later...
      */
-    rc = sscanf(entry->d_name, "%d_%d_%d_%d_%d_%d_picture_%09llu.jpg", &year, \
-                &month, \
-                &day, \
-                &hour, \
-                &minute, \
-                &second, \
-                &number);
+    rc = sscanf(entry->d_name, "picture_%09llu.jpg", &number);
 
-    DBG("%s, rc is %d (%d, %d, %d, %d, %d, %d, %llu)\n", entry->d_name, \
-        rc, \
-        year, \
-        month, \
-        day, \
-        hour, \
-        minute, \
-        second, \
-        number);
+    DBG("%s, rc is %d (%llu)\n", entry->d_name, rc, number);
 
     /* if scanf could find all values, it matches our filenames */
-    if(rc != 7) return 0;
+    if(rc != 1) return 0;
 
     return 1;
 }
@@ -245,15 +230,8 @@ void *worker_thread(void *arg)
             return NULL;
         }
 
-        /* prepare string, add time and date values */
-        if(strftime(buffer1, sizeof(buffer1), "%%s/%Y_%m_%d_%H_%M_%S_picture_%%09llu.jpg", now) == 0) {
-            OPRINT("strftime returned 0\n");
-            free(frame); frame = NULL;
-            return NULL;
-        }
-
         /* finish filename by adding the foldername and a counter value */
-        snprintf(buffer2, sizeof(buffer2), buffer1, folder, counter);
+        snprintf(buffer2, sizeof(buffer2), "%s/picture_%09llu.jpg", folder, counter);
 
         counter++;
 
