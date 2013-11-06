@@ -1,21 +1,21 @@
 #! /bin/sh
 ### BEGIN INIT INFO
-# Provides:          mjpg-streamer server
+# Provides:          webcam server
 # Required-Start:    $remote_fs $syslog
 # Required-Stop:     $remote_fs $syslog
 # Default-Start:     2 3 4 5
 # Default-Stop:      0 1 6
 # Short-Description: Starts the webcam
-# Description:       Starts the webcam via mjpg-streamer
+# Description:       Starts the webcam service
 ### END INIT INFO
 
 # Author: Todd Brandt <tebrandt@frontier.com>
 
 PATH=/sbin:/usr/sbin:/bin:/usr/bin:/usr/local/bin
-DESC="MJPG Streamer"
-NAME=mjpg_streamer
-DAEMON=/usr/local/bin/mjpg_streamer
-PIDFILE=/var/run/$NAME.pid
+DESC="Webcam Streamer"
+NAME=webcam
+DAEMON=/usr/local/bin/webcam-manager
+PIDFILE=/var/run/webcam-manager.pid
 SCRIPTNAME=/etc/init.d/$NAME
 
 # Exit if the package is not installed
@@ -28,25 +28,30 @@ do_start()
 {
 	start-stop-daemon --start --quiet --pidfile $PIDFILE --background --exec $DAEMON --test > /dev/null \
 		|| return 1
-	start-stop-daemon --start --quiet --pidfile $PIDFILE --exec $DAEMON -- \
-		-i "/opt/mjpg-streamer/plugins/input_uvc/input_uvc.so -d /dev/video0 -r 1280x720 -f 15" -o "/opt/mjpg-streamer/plugins/output_http/output_http.so -p 8090" > /var/log/mjpg_streamer.log 2>&1 \
+	start-stop-daemon --start --quiet --pidfile $PIDFILE --exec $DAEMON > /var/log/webcam-manager.log 2>&1 \
 		|| return 2 &
 }
 
 do_stop()
 {
+	PIDS=`ps -C webcam-manager --no-headers | awk '{print $1}'`
+	for PID in $PIDS
+	do
+		kill -9 $PID
+	done
+	PIDS=`ps -C mjpg_streamer --no-headers | awk '{print $1}'`
+	for PID in $PIDS
+	do
+		kill -9 $PID
+	done
 	start-stop-daemon --stop --quiet --retry=TERM/30/KILL/5 --pidfile $PIDFILE --name $NAME
 	RETVAL="$?"
 	[ "$RETVAL" = 2 ] && return 2
 	start-stop-daemon --stop --quiet --oknodo --retry=0/30/KILL/5 --exec $DAEMON
 	[ "$?" = 2 ] && return 2
 	rm -f $PIDFILE
+	rm -f /var/lock/webcam
 	return "$RETVAL"
-}
-
-do_reload() {
-	start-stop-daemon --stop --signal 1 --quiet --pidfile $PIDFILE --name $NAME
-	return 0
 }
 
 case "$1" in

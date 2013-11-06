@@ -1,0 +1,31 @@
+#!/bin/sh
+
+if [ -e /var/lock/webcam ]; then
+	echo "Another webcam-manager is already running"
+	exit
+fi
+touch /var/lock/webcam
+
+DAEMON=/usr/local/bin/mjpg_streamer
+INPUTARG="/opt/mjpg-streamer/plugins/input_uvc/input_uvc.so -d /dev/video0 -r 1280x720 -f 15"
+OUTPUTARG="/opt/mjpg-streamer/plugins/output_http/output_http.so -p 8090"
+LOG=/var/log/mjpg_streamer.log
+
+while [ 1 ]; do
+	PID=`ps -C mjpg_streamer --no-headers | head -1 | awk '{print $1}'`
+	if [ -z "$PID" ]; then
+		$DAEMON -i "$INPUTARG" -o "$OUTPUTARG" > $LOG 2>&1 &
+		PID=$!
+		echo "New mjpg_streamer with PID $PID"
+	else
+		echo "Existing mjpg_streamer with PID $PID"
+	fi
+	while [ 1 ]; do
+		CHECK=`ps --pid $PID --no-headers | awk '{print $4}'`
+		if [ "$CHECK" != "mjpg_streamer" ]; then
+			echo "Dead mjpg_streamer with PID $PID"
+			break
+		fi
+		sleep 5
+	done
+done
