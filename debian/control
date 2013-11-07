@@ -1,0 +1,16 @@
+Source: mjpg-streamer
+Section: unknown
+Priority: extra
+Maintainer: Todd Brandt <tebrandt@frontier.com>
+Build-Depends: debhelper (>= 8.0.0)
+Standards-Version: 3.9.4
+Homepage: https://github.com/atomicpunk/mjpg-streamer
+
+Package: mjpg-streamer
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: simple webcam streaming video service
+ Using the mjpg_streamer tool as a base, this
+ package installs a webcam-manager service which
+ automatically starts transmitting video over
+ a web server on startup.
