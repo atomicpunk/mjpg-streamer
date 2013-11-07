@@ -6,9 +6,9 @@ if [ -e /var/lock/webcam ]; then
 fi
 touch /var/lock/webcam
 
-DAEMON=/usr/local/bin/mjpg_streamer
-INPUTARG="/usr/local/lib/input_uvc.so -d /dev/video0 -r 1280x720 -f 15"
-OUTPUTARG="/usr/local/lib/output_http.so -p 8090"
+DAEMON=/usr/bin/mjpg_streamer
+INPUTARG="/usr/lib/input_uvc.so -d /dev/video0 -r 1280x720 -f 15"
+OUTPUTARG="/usr/lib/output_http.so -p 8090"
 LOG=/var/log/mjpg_streamer.log
 
 while [ 1 ]; do
