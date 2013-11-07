@@ -55,7 +55,7 @@ on_stop() {
 		echo ""
 		rm -f $PIDFILE
 	else
-		echo "VLCRecord is not currently running"
+		echo "No Recording"
 	fi
 }
 
