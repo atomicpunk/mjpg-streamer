@@ -155,7 +155,7 @@ tgz: clean
 # install MJPG-streamer and example webpages
 install: all
 	install --mode=755 $(APP_BINARY) $(DESTDIR)/bin
-	install --mode=644 $(PLUGINS) $(DESTDIR)/lib/
+	install --mode=644 $(PLUGINS) $(DESTDIR)/lib
 	install --mode=755 -d $(DESTDIR)/www
 	install --mode=644 -D www/* $(DESTDIR)/www
 
