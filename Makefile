@@ -10,7 +10,7 @@
 # specifies where to install the binaries after compilation
 # to use another directory you can specify it with:
 # $ sudo make DESTDIR=/some/path install
-DESTDIR = /usr/local
+DESTDIR = /usr
 
 # set the compiler to use
 CC = gcc
