@@ -14,7 +14,7 @@
 PATH=/sbin:/usr/sbin:/bin:/usr/bin:/usr/local/bin
 DESC="Webcam Streamer"
 NAME=webcam
-DAEMON=/usr/local/bin/webcam-manager
+DAEMON=/usr/bin/webcam-manager
 PIDFILE=/var/run/webcam-manager.pid
 SCRIPTNAME=/etc/init.d/$NAME
 

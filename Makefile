@@ -15,9 +15,6 @@ DESTDIR = /usr/local
 # set the compiler to use
 CC = gcc
 
-SVNDEV := -D'SVN_REV="$(shell svnversion -c .)"'
-CFLAGS += $(SVNDEV)
-
 # general compile flags, enable all warnings to make compile more verbose
 CFLAGS += -O2 -DLINUX -D_GNU_SOURCE -Wall 
 # CFLAGS += -g 
