@@ -154,13 +154,19 @@ tgz: clean
 
 # install MJPG-streamer and example webpages
 install: all
-	install --mode=755 -d $(DESTDIR)/bin $(DESTDIR)/lib
+	install --mode=755 -d $(DESTDIR)/bin $(DESTDIR)/lib $(DESTDIR)/etc/init.d
 	install --mode=755 $(APP_BINARY) $(DESTDIR)/bin
 	install --mode=644 $(PLUGINS) $(DESTDIR)/lib
+	install --mode=755 webcam-manager $(DESTDIR)/bin
+	install --mode=755 webcam.service $(DESTDIR)/etc/init.d/webcam
+	update-rc.d webcam start 90 2 3 4 5 . stop 90 0 1 6 .
 
 # remove the files installed above
 uninstall:
 	rm -f $(DESTDIR)/bin/$(APP_BINARY)
 	for plug in $(PLUGINS); do \
-	  rm -f $(DESTDIR)/lib/$$plug; \
+ 	  rm -f $(DESTDIR)/lib/$$plug; \
 	done;
+	rm -f $(DESTDIR)/bin/webcam-manager
+	update-rc.d -f remove webcam
+	rm -f $(DESTDIR)/etc/init.d/webcam

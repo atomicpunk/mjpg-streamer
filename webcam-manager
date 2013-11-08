@@ -1,15 +1,20 @@
 #!/bin/sh
 
+DEVICE=/dev/video0
+DAEMON=/usr/bin/mjpg_streamer
+INPUTARG="/usr/lib/input_uvc.so -d $DEVICE -r 1280x720 -f 15"
+OUTPUTARG="/usr/lib/output_http.so -p 8090"
+LOG=/var/log/mjpg_streamer.log
+
+if [ ! -e $DEVICE ]; then
+	exit
+fi
+
 if [ -e /var/lock/webcam ]; then
 	echo "Another webcam-manager is already running"
 	exit
 fi
 touch /var/lock/webcam
-
-DAEMON=/usr/bin/mjpg_streamer
-INPUTARG="/usr/lib/input_uvc.so -d /dev/video0 -r 1280x720 -f 15"
-OUTPUTARG="/usr/lib/output_http.so -p 8090"
-LOG=/var/log/mjpg_streamer.log
 
 while [ 1 ]; do
 	PID=`ps -C mjpg_streamer --no-headers | head -1 | awk '{print $1}'`
