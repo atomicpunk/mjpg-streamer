@@ -144,6 +144,7 @@ clean:
 	make -C plugins/output_viewer $@
 	make -C plugins/input_control $@
 	make -C plugins/output_rtsp $@
+	make -C plugins/input_file $@
 #	make -C plugins/input_http $@
 	rm -f *.a *.o $(APP_BINARY) core *~ *.so *.lo
 
@@ -154,11 +155,11 @@ tgz: clean
 
 # install MJPG-streamer and example webpages
 install: all
-	install --mode=755 -d $(DESTDIR)/bin $(DESTDIR)/lib $(DESTDIR)/etc/init.d
+	install --mode=755 -d $(DESTDIR)/bin $(DESTDIR)/lib /etc/init.d
 	install --mode=755 $(APP_BINARY) $(DESTDIR)/bin
 	install --mode=644 $(PLUGINS) $(DESTDIR)/lib
 	install --mode=755 webcam-manager $(DESTDIR)/bin
-	install --mode=755 webcam.service $(DESTDIR)/etc/init.d/webcam
+	install --mode=755 webcam /etc/init.d
 	update-rc.d webcam start 90 2 3 4 5 . stop 90 0 1 6 .
 
 # remove the files installed above
@@ -168,5 +169,5 @@ uninstall:
  	  rm -f $(DESTDIR)/lib/$$plug; \
 	done;
 	rm -f $(DESTDIR)/bin/webcam-manager
-	update-rc.d -f remove webcam
-	rm -f $(DESTDIR)/etc/init.d/webcam
+	update-rc.d -f webcam remove
+	rm -f /etc/init.d/webcam

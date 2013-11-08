@@ -19,13 +19,6 @@ all: input_testpicture.so
 
 clean:
 	rm -f *.a *.o core *~ *.so *.lo
-
-# pictures will not get cleaned automatically, it may be possible
-# that other users do not have the required tools for re-building installed
-# required tools are:
-#  * convert (ImageMagick)
-#  * od, sed, tr
-clean_pictures:
 	rm -f testpictures.h
 	rm -f pictures/160x120_1.jpg pictures/160x120_2.jpg
 	rm -f pictures/320x240_1.jpg pictures/320x240_2.jpg
