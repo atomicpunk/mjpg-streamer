@@ -1,34 +1,44 @@
 #!/bin/sh
 
-DEVICE=/dev/video0
-DAEMON=/usr/bin/mjpg_streamer
-INPUTARG="/usr/lib/input_uvc.so -d $DEVICE -r 1280x720 -f 15"
-OUTPUTARG="/usr/lib/output_http.so -p 8090"
-LOG=/var/log/mjpg_streamer.log
-
-if [ ! -e $DEVICE ]; then
-	exit
-fi
-
-if [ -e /var/lock/webcam ]; then
+if [ -e "/var/lock/webcam" ]; then
 	echo "Another webcam-manager is already running"
 	exit
 fi
-touch /var/lock/webcam
+touch "/var/lock/webcam"
+
+DAEMON="/usr/bin/mjpg_streamer"
+VIDARGS="-r 1280x720 -f 24"
 
 while [ 1 ]; do
-	PID=`ps -C mjpg_streamer --no-headers | head -1 | awk '{print $1}'`
-	if [ -z "$PID" ]; then
-		$DAEMON -i "$INPUTARG" -o "$OUTPUTARG" > $LOG 2>&1 &
-		PID=$!
-		echo "New mjpg_streamer with PID $PID"
-	else
-		echo "Existing mjpg_streamer with PID $PID"
-	fi
+	DEVICES=`ls -1 /dev/video?`
+	PIDS=""
+	for d in $DEVICES;
+	do
+		NUM=`echo $d | sed "s/[a-z,/]//g"`
+		PORT="809$NUM"
+		INPUTARG="/usr/lib/input_uvc.so -d $d $VIDARGS"
+		OUTPUTARG="/usr/lib/output_http.so -p $PORT"
+		LOG="/var/log/mjpg_streamer$NUM.log"
+		PID=`ps -C mjpg_streamer --no-headers -o pid,args | grep $d | head -1 | awk '{print $1}'`
+		if [ -z "$PID" ]; then
+			$DAEMON -i "$INPUTARG" -o "$OUTPUTARG" > $LOG 2>&1 &
+			PID=$!
+			echo "New mjpg_streamer for $d with PID $PID"
+		fi
+		PIDS="$PID $PIDS"
+	done
+
 	while [ 1 ]; do
-		CHECK=`ps --pid $PID --no-headers | awk '{print $4}'`
-		if [ "$CHECK" != "mjpg_streamer" ]; then
-			echo "Dead mjpg_streamer with PID $PID"
+		EVERYBODYONLINE=1
+		for p in $PIDS;
+		do
+			CHECK=`ps --pid $p --no-headers | awk '{print $4}'`
+			if [ "$CHECK" != "mjpg_streamer" ]; then
+				echo "Dead mjpg_streamer with PID $PID"
+				EVERYBODYONLINE=0
+			fi
+		done
+		if [ $EVERYBODYONLINE -ne 1 ]; then
 			break
 		fi
 		sleep 5
