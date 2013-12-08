@@ -13,8 +13,9 @@
 # Copyright 2012 Todd Brandt <tebrandt@frontier.com>
 #
 # This program is free software; you may redistribute it and/or modify it
-# under the same terms as Perl itself.
-#    utility to set up development windows quickly
+# under the GNU GPL license.
+#
+#    Service to launch/maintain mjpg-streamers for all video devices
 #    Copyright (C) 2012 Todd Brandt <tebrandt@frontier.com>
 #
 #    This program is free software; you can redistribute it and/or modify
