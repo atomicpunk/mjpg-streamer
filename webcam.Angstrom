@@ -67,6 +67,7 @@ do_stop()
 case "$1" in
   start)
 	echo "Starting $DESC"
+	do_stop
 	do_start
 	;;
   stop)
