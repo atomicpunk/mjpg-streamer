@@ -29,6 +29,7 @@ LFLAGS += -lpthread -ldl
 APP_BINARY = mjpg_streamer
 
 # define the names and targets of the plugins
+PLATFORM = $(shell lsb_release -i | sed -e "s/.*: //" 2>&1)
 PLUGINS = input_uvc.so
 PLUGINS += output_file.so
 PLUGINS += output_udp.so
@@ -156,7 +157,7 @@ install: all
 	install --mode=755 $(APP_BINARY) $(DESTDIR)/bin
 	install --mode=644 $(PLUGINS) $(DESTDIR)/lib
 	install --mode=755 webcam-manager $(DESTDIR)/bin
-	install --mode=755 webcam /etc/init.d
+	install --mode=755 webcam.$(PLATFORM) /etc/init.d/webcam
 	update-rc.d webcam start 90 2 3 4 5 . stop 90 0 1 6 .
 
 # remove the files installed above
