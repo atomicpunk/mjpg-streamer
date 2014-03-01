@@ -73,12 +73,14 @@ static globals *pglobal;
 static int gquality = 80;
 static unsigned int minimum_size = 0;
 static int dynctrls = 1;
+char **mdev = NULL;
+int mcnt = 0, port = 0, camera = 0;
 
 void *cam_thread(void *);
+void *ctrl_thread(void *);
 void cam_cleanup(void *);
 void help(void);
 int input_cmd(int plugin, unsigned int control, unsigned int group, int value);
-
 
 /*** plugin interface functions ***/
 /******************************************************************************
@@ -92,13 +94,13 @@ Return Value: 0 if everything is fine
 ******************************************************************************/
 int input_init(input_parameter *param, int id)
 {
-    char *dev = "/dev/video0", *s;
+    char *dev = "/dev/video0", *s, *ptr;
     int width = 640, height = 480, fps = 5, format = V4L2_PIX_FMT_MJPEG, i;
-    /* initialize the mutes variable */
-    if(pthread_mutex_init(&cams[id].controls_mutex, NULL) != 0) {
-        IPRINT("could not initialize mutex variable\n");
-        exit(EXIT_FAILURE);
-    }
+
+	if(mcnt > 0) {
+		IPRINT("Cannot run multiple instances of this plugin\n");
+		exit(EXIT_FAILURE);
+	}
 
     param->argv[0] = INPUT_PLUGIN_NAME;
 
@@ -131,6 +133,8 @@ int input_init(input_parameter *param, int id)
             {"no_dynctrl", no_argument, 0, 0},
             {"l", required_argument, 0, 0},
             {"led", required_argument, 0, 0},
+            {"p", required_argument, 0, 0},
+            {"port", required_argument, 0, 0},
             {0, 0, 0, 0}
         };
 
@@ -159,8 +163,16 @@ int input_init(input_parameter *param, int id)
             /* d, device */
         case 2:
         case 3:
-            DBG("case 2,3\n");
-            dev = strdup(optarg);
+			DBG("case 2,3\n");
+			dev = strdup(optarg);
+			for(ptr = strtok(dev, ","); ptr != NULL; ptr = strtok(NULL, ","), mcnt++);
+			free(dev);
+			mdev = calloc(mcnt, sizeof(char *));
+			dev = strdup(optarg);
+			for(i = 0, ptr = strtok(dev, ","); ptr != NULL; ptr = strtok(NULL, ","), i++)
+				mdev[i] = strdup(ptr);
+			free(dev);
+			dev = NULL;
             break;
 
             /* r, resolution */
@@ -236,6 +248,13 @@ int input_init(input_parameter *param, int id)
         }*/
             break;
 
+            /* p, port */
+        case 18:
+        case 19:
+            DBG("case 18,19\n");
+            port = atoi(optarg);
+            break;
+
         default:
             DBG("default case\n");
             help();
@@ -243,43 +262,58 @@ int input_init(input_parameter *param, int id)
         }
     }
     DBG("input id: %d\n", id);
-    cams[id].id = id;
-    cams[id].pglobal = param->global;
 
-    /* allocate webcam datastructure */
-    cams[id].videoIn = malloc(sizeof(struct vdIn));
-    if(cams[id].videoIn == NULL) {
-        IPRINT("not enough memory for videoIn\n");
-        exit(EXIT_FAILURE);
-    }
-    memset(cams[id].videoIn, 0, sizeof(struct vdIn));
+	for(i = 0; i < mcnt; i++) {
+		/* initialize the mutes variable */
+		if(pthread_mutex_init(&cams[id+i].controls_mutex, NULL) != 0) {
+			IPRINT("could not initialize mutex variable\n");
+			exit(EXIT_FAILURE);
+		}
 
-    /* display the parsed values */
-    IPRINT("Using V4L2 device.: %s\n", dev);
+		cams[id+i].id = id+i;
+		cams[id+i].pglobal = param->global;
+
+		/* allocate webcam datastructure */
+		cams[id+i].videoIn = malloc(sizeof(struct vdIn));
+		if(cams[id+i].videoIn == NULL) {
+			IPRINT("not enough memory for videoIn\n");
+			exit(EXIT_FAILURE);
+		}
+		memset(cams[id+i].videoIn, 0, sizeof(struct vdIn));
+
+	    /* display the parsed values */
+		IPRINT("Using V4L2 device%d: %s\n", i, mdev[i]);
+	}
     IPRINT("Desired Resolution: %i x %i\n", width, height);
     IPRINT("Frames Per Second.: %i\n", fps);
     IPRINT("Format............: %s\n", (format == V4L2_PIX_FMT_YUYV) ? "YUV" : "MJPEG");
     if(format == V4L2_PIX_FMT_YUYV)
         IPRINT("JPEG Quality......: %d\n", gquality);
+	if(port > 0)
+        IPRINT("Control Port......: %d\n", port);
 
-    DBG("vdIn pn: %d\n", id);
-    /* open video device and prepare data structure */
-    if(init_videoIn(cams[id].videoIn, dev, width, height, fps, format, 1, cams[id].pglobal, id) < 0) {
-        IPRINT("init_VideoIn failed\n");
-        closelog();
-        exit(EXIT_FAILURE);
-    }
-    /*
-     * recent linux-uvc driver (revision > ~#125) requires to use dynctrls
-     * for pan/tilt/focus/...
-     * dynctrls must get initialized
-     */
-    if(dynctrls)
-        initDynCtrls(cams[id].videoIn->fd);
+	/* open video device and prepare data structure */
+	for(i = 0; i < mcnt; i++) {
+		DBG("vdIn pn: %d\n", id);
+		if(init_videoIn(cams[id+i].videoIn, mdev[i], width, height,
+			fps, format, 1, cams[id+i].pglobal, id+i) < 0)
+		{
+			IPRINT("init_VideoIn failed\n");
+			closelog();
+			exit(EXIT_FAILURE);
+		}
+		/*
+		 * recent linux-uvc driver (revision > ~#125) requires to use dynctrls
+		 * for pan/tilt/focus/...
+		 * dynctrls must get initialized
+		 */
+		//if(dynctrls)
+		//	initDynCtrls(cams[id+i].videoIn->fd);
 
-    enumerateControls(cams[id].videoIn, cams[id].pglobal, id); // enumerate V4L2 controls after UVC extended mapping
-
-    return 0;
+		/* enumerate V4L2 controls after UVC extended mapping */
+		enumerateControls(cams[id+i].videoIn, cams[id+i].pglobal, id+i);
+	}
+	return 0;
 }
 
 /******************************************************************************
@@ -291,6 +325,8 @@ int input_stop(int id)
 {
     DBG("will cancel camera thread #%02d\n", id);
     pthread_cancel(cams[id].threadID);
+	if(port > 0)
+		pthread_cancel(cams[id].ctrlthreadID);
     return 0;
 }
 
@@ -309,8 +345,12 @@ int input_run(int id)
 
     DBG("launching camera thread #%02d\n", id);
     /* create thread and pass context to thread function */
-    pthread_create(&(cams[id].threadID), NULL, cam_thread, &(cams[id]));
+	pthread_create(&(cams[id].threadID), NULL, cam_thread, (void*)id);
     pthread_detach(cams[id].threadID);
+	if(port > 0) {
+		pthread_create(&(cams[id].ctrlthreadID), NULL, ctrl_thread, (void*)id);
+    	pthread_detach(cams[id].ctrlthreadID);
+	}
     return 0;
 }
 
@@ -355,43 +395,96 @@ void help(void)
 }
 
 /******************************************************************************
+Description.: this thread worker monitors the ctrl socket for commands
+Input Value.: unused
+Return Value: unused, always NULL
+******************************************************************************/
+void *ctrl_thread(void *arg)
+{
+	struct sockaddr_in addr, cli_addr;
+	socklen_t clen;
+	char recvBuff[1024];
+	int id = (int)arg, sd = 0, connfd = 0, cam;
+	context *pcontext = &cams[id];
+	pglobal = pcontext->pglobal;
+
+	sd = socket(AF_INET, SOCK_STREAM, 0);
+	if(sd < 0) {
+		perror("ctrl socket");
+		return NULL;
+	}
+	bzero(&addr, sizeof(addr));
+	addr.sin_family = AF_INET;
+	addr.sin_addr.s_addr = INADDR_ANY;
+	addr.sin_port = htons(port);
+	if(bind(sd, (struct sockaddr*)&addr, sizeof(addr)) != 0) {
+		perror("ctrl socket bind");
+		return NULL;
+	}
+	IPRINT("Listening on port.: %i\n", port);
+	listen(sd, 5);
+	while(!pglobal->stop) {
+		connfd = accept(sd, (struct sockaddr*)&cli_addr, &clen);
+		if(read(connfd, recvBuff, 1024) > 0) {
+			if((strncmp(recvBuff, ";camera(", 8) == 0) &&
+			   (sscanf(recvBuff, ";camera(%d);", &cam) == 1) &&
+			   ((cam >= 0)&&(cam < mcnt)))
+			{
+				camera = cam;
+			}
+		}
+	}
+	return NULL;
+}
+
+/******************************************************************************
 Description.: this thread worker grabs a frame and copies it to the global buffer
 Input Value.: unused
 Return Value: unused, always NULL
 ******************************************************************************/
 void *cam_thread(void *arg)
 {
+	int cid = 0, id = (int)arg;
+	context *activecam, *pcontext = &cams[id];
+	pglobal = pcontext->pglobal;
 
-    context *pcontext = arg;
-    pglobal = pcontext->pglobal;
+	activecam = pcontext;
 
-    /* set cleanup handler to cleanup allocated ressources */
-    pthread_cleanup_push(cam_cleanup, pcontext);
+	/* set cleanup handler to cleanup allocated ressources */
+	pthread_cleanup_push(cam_cleanup, pcontext);
 
-    while(!pglobal->stop) {
-        while(pcontext->videoIn->streamingState == STREAMING_PAUSED) {
-            usleep(1); // maybe not the best way so FIXME
-        }
+	while(!pglobal->stop) {
+		if(cid != camera) {
+			video_pause(activecam->videoIn);
+			cid = camera;
+			activecam = &cams[id + cid];
+			IPRINT("Switch to camera..: %s\n", mdev[cid]);
+			video_unpause(activecam->videoIn);
+		}
+		while(activecam->videoIn->streamingState == STREAMING_PAUSED) {
+			usleep(1); // maybe not the best way so FIXME
+		}
 
-        /* grab a frame */
-        if(uvcGrab(pcontext->videoIn) < 0) {
-            IPRINT("Error grabbing frames\n");
-            exit(EXIT_FAILURE);
-        }
+		/* grab a frame */
+		if(uvcGrab(activecam->videoIn) < 0) {
+			IPRINT("Error grabbing frames\n");
+			exit(EXIT_FAILURE);
+		}
 
-        DBG("received frame of size: %d from plugin: %d\n", pcontext->videoIn->buf.bytesused, pcontext->id);
+		DBG("received frame of size: %d from plugin: %d\n",
+			activecam->videoIn->buf.bytesused, activecam->id);
 
-        /*
-         * Workaround for broken, corrupted frames:
-         * Under low light conditions corrupted frames may get captured.
-         * The good thing is such frames are quite small compared to the regular pictures.
-         * For example a VGA (640x480) webcam picture is normally >= 8kByte large,
-         * corrupted frames are smaller.
-         */
-        if(pcontext->videoIn->buf.bytesused < minimum_size) {
-            DBG("dropping too small frame, assuming it as broken\n");
-            continue;
-        }
+		/*
+		 * Workaround for broken, corrupted frames:
+		 * Under low light conditions corrupted frames may get captured.
+		 * The good thing is such frames are quite small compared to the regular pictures.
+		 * For example a VGA (640x480) webcam picture is normally >= 8kByte large,
+		 * corrupted frames are smaller.
+		 */
+		if(activecam->videoIn->buf.bytesused < minimum_size) {
+			DBG("dropping too small frame, assuming it as broken\n");
+			continue;
+		}
 
         /* copy JPG picture to global buffer */
         pthread_mutex_lock(&pglobal->in[pcontext->id].db);
@@ -402,24 +495,22 @@ void *cam_thread(void *arg)
          * Getting JPEGs straight from the webcam, is one of the major advantages of
          * Linux-UVC compatible devices.
          */
-        if(pcontext->videoIn->formatIn == V4L2_PIX_FMT_YUYV) {
-            DBG("compressing frame from input: %d\n", (int)pcontext->id);
-            pglobal->in[pcontext->id].size = compress_yuyv_to_jpeg(pcontext->videoIn, pglobal->in[pcontext->id].buf, pcontext->videoIn->framesizeIn, gquality);
-        } else {
-            DBG("copying frame from input: %d\n", (int)pcontext->id);
-            pglobal->in[pcontext->id].size = memcpy_picture(pglobal->in[pcontext->id].buf, pcontext->videoIn->tmpbuffer, pcontext->videoIn->buf.bytesused);
-        }
-
-#if 0
-        /* motion detection can be done just by comparing the picture size, but it is not very accurate!! */
-        if((prev_size - global->size)*(prev_size - global->size) > 4 * 1024 * 1024) {
-            DBG("motion detected (delta: %d kB)\n", (prev_size - global->size) / 1024);
-        }
-        prev_size = global->size;
-#endif
+		if(activecam->videoIn->formatIn == V4L2_PIX_FMT_YUYV) {
+			DBG("compressing frame from input: %d\n", (int)activecam->id);
+			pglobal->in[pcontext->id].size = 
+				compress_yuyv_to_jpeg(activecam->videoIn, 
+				pglobal->in[pcontext->id].buf,
+				activecam->videoIn->framesizeIn, gquality);
+		} else {
+			DBG("copying frame from input: %d\n", (int)activecam->id);
+			pglobal->in[pcontext->id].size =
+				memcpy_picture(pglobal->in[pcontext->id].buf, 
+				activecam->videoIn->tmpbuffer,
+				activecam->videoIn->buf.bytesused);
+		}
 
         /* copy this frame's timestamp to user space */
-        pglobal->in[pcontext->id].timestamp = pcontext->videoIn->buf.timestamp;
+        pglobal->in[pcontext->id].timestamp = activecam->videoIn->buf.timestamp;
 
         /* signal fresh_frame */
         pthread_cond_broadcast(&pglobal->in[pcontext->id].db_update);
@@ -427,9 +518,9 @@ void *cam_thread(void *arg)
 
 
         /* only use usleep if the fps is below 5, otherwise the overhead is too long */
-        if(pcontext->videoIn->fps < 5) {
-            DBG("waiting for next frame for %d us\n", 1000 * 1000 / pcontext->videoIn->fps);
-            usleep(1000 * 1000 / pcontext->videoIn->fps);
+        if(activecam->videoIn->fps < 5) {
+            DBG("waiting for next frame for %d us\n", 1000 * 1000 / activecam->videoIn->fps);
+            usleep(1000 * 1000 / activecam->videoIn->fps);
         } else {
             DBG("waiting for next frame\n");
         }
@@ -448,8 +539,9 @@ Return Value:
 ******************************************************************************/
 void cam_cleanup(void *arg)
 {
+	int i;
     static unsigned char first_run = 1;
-    context *pcontext = arg;
+    context *activecam, *pcontext = arg;
     pglobal = pcontext->pglobal;
     if(!first_run) {
         DBG("already cleaned up ressources\n");
@@ -459,9 +551,12 @@ void cam_cleanup(void *arg)
     first_run = 0;
     IPRINT("cleaning up ressources allocated by input thread\n");
 
-    close_v4l2(pcontext->videoIn);
-    if(pcontext->videoIn->tmpbuffer != NULL) free(pcontext->videoIn->tmpbuffer);
-    if(pcontext->videoIn != NULL) free(pcontext->videoIn);
+	for(i = 0; i < mcnt; i++) {
+		activecam = &cams[pcontext->id + i];
+	    close_v4l2(activecam->videoIn);
+	    if(activecam->videoIn->tmpbuffer != NULL) free(activecam->videoIn->tmpbuffer);
+	    if(activecam->videoIn != NULL) free(activecam->videoIn);
+	}
     if(pglobal->in[pcontext->id].buf != NULL)
         free(pglobal->in[pcontext->id].buf);
 }

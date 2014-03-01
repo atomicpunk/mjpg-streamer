@@ -112,6 +112,7 @@ typedef struct {
     int id;
     globals *pglobal;
     pthread_t threadID;
+    pthread_t ctrlthreadID;
     pthread_mutex_t controls_mutex;
     struct vdIn *videoIn;
 } context;
@@ -126,6 +127,8 @@ int setResolution(struct vdIn *vd, int width, int height);
 int memcpy_picture(unsigned char *out, unsigned char *buf, int size);
 int uvcGrab(struct vdIn *vd);
 int close_v4l2(struct vdIn *vd);
+int video_pause(struct vdIn *vd);
+int video_unpause(struct vdIn *vd);
 
 int v4l2GetControl(struct vdIn *vd, int control);
 int v4l2SetControl(struct vdIn *vd, int control, int value, int plugin_number, globals *pglobal);

@@ -738,8 +738,42 @@ void control_readed(struct vdIn *vd, struct v4l2_queryctrl *ctrl, globals *pglob
     pglobal->in[id].parametercount++;
 };
 
+int video_pause(struct vdIn *vd)
+{
+	int ret = 0;
+	if(vd->streamingState == STREAMING_ON) {
+		vd->streamingState = STREAMING_PAUSED;
+		ret = video_disable(vd, STREAMING_PAUSED);
+		if(ret == 0) {
+			DBG("Unmap buffers\n");
+			int i;
+			for(i = 0; i < NB_BUFFER; i++)
+				munmap(vd->mem[i], vd->buf.length);
+			if(CLOSE_VIDEO(vd->fd) == 0) {
+				DBG("Device closed successfully\n");
+			}
+		}
+	}
+	return ret;
+}
+
+int video_unpause(struct vdIn *vd)
+{
+	int ret = 0;
+	if(vd->streamingState == STREAMING_PAUSED) {
+		if(init_v4l2(vd) < 0) {
+			fprintf(stderr, " Init v4L2 failed !! exit fatal \n");
+			ret = -1;
+		} else {
+			DBG("reinit done\n");
+			video_enable(vd);
+		}
+	}
+	return ret;
+}
+
 /*  It should set the capture resolution
-    Cheated from the openCV cap_libv4l.cpp the method is the following:
+	Cheated from the openCV cap_libv4l.cpp the method is the following:
     Turn off the stream (video_disable)
     Unmap buffers
     Close the filedescriptor
