@@ -95,7 +95,7 @@ else
 		done
 		INPUTARG="/usr/lib/input_uvc.so -d $DEVLIST $VIDARGS -p 3001"
 		OUTPUTARG="/usr/lib/output_http.so -p 8090"
-		LOG="/var/log/mjpg_streamer$NUM.log"
+		LOG="/var/log/mjpg_streamer.log"
 		$DAEMON -i "$INPUTARG" -o "$OUTPUTARG" > $LOG 2>&1 &
 		PID=$!
 		echo "New mjpg_streamer for $DEVLIST with PID $PID"
