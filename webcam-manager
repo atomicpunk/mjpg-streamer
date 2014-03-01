@@ -29,41 +29,84 @@ if [ -e "/var/lock/webcam" ]; then
 fi
 touch "/var/lock/webcam"
 
+if [ $# -gt 1 ]; then
+	echo "USAGE: webcam-manager [--singlestream]"
+	exit
+fi
+
 DAEMON="/usr/bin/mjpg_streamer"
-VIDARGS="-r 1280x720 -f 24"
+VIDARGS="-r 1280x720 -f 12"
+# multi: run as many mjpg_streamers as there are camera devices
+STREAM="multi"
 
-while [ 1 ]; do
-	DEVICES=`ls -1 /dev/video?`
-	PIDS=""
-	for d in $DEVICES;
-	do
-		NUM=`echo $d | sed "s/[a-z,/]//g"`
-		PORT="809$NUM"
-		INPUTARG="/usr/lib/input_uvc.so -d $d $VIDARGS"
-		OUTPUTARG="/usr/lib/output_http.so -p $PORT"
-		LOG="/var/log/mjpg_streamer$NUM.log"
-		PID=`ps -C mjpg_streamer --no-headers -o pid,args | grep $d | head -1 | awk '{print $1}'`
-		if [ -z "$PID" ]; then
-			$DAEMON -i "$INPUTARG" -o "$OUTPUTARG" > $LOG 2>&1 &
-			PID=$!
-			echo "New mjpg_streamer for $d with PID $PID"
-		fi
-		PIDS="$PID $PIDS"
-	done
+if [ $# -eq 1 -a "$1" = "--singlestream" ]; then
+	# single: run a single mjpg_streamer multiplexing all cameras
+	STREAM="single"
+fi
 
+if [ $STREAM = "multi" ]; then
 	while [ 1 ]; do
-		EVERYBODYONLINE=1
-		for p in $PIDS;
+		DEVICES=`ls -1 /dev/video?`
+		PIDS=""
+		for d in $DEVICES;
 		do
-			CHECK=`ps --pid $p --no-headers | awk '{print $4}'`
-			if [ "$CHECK" != "mjpg_streamer" ]; then
-				echo "Dead mjpg_streamer with PID $PID"
-				EVERYBODYONLINE=0
+			NUM=`echo $d | sed "s/[a-z,/]//g"`
+			PORT="809$NUM"
+			INPUTARG="/usr/lib/input_uvc.so -d $d $VIDARGS"
+			OUTPUTARG="/usr/lib/output_http.so -p $PORT"
+			LOG="/var/log/mjpg_streamer$NUM.log"
+			PID=`ps -C mjpg_streamer --no-headers -o pid,args | grep $d | head -1 | awk '{print $1}'`
+			if [ -z "$PID" ]; then
+				$DAEMON -i "$INPUTARG" -o "$OUTPUTARG" > $LOG 2>&1 &
+				PID=$!
+				echo "New mjpg_streamer for $d with PID $PID"
+			fi
+			PIDS="$PID $PIDS"
+		done
+
+		while [ 1 ]; do
+			EVERYBODYONLINE=1
+			for p in $PIDS;
+			do
+				CHECK=`ps --pid $p --no-headers | awk '{print $4}'`
+				if [ "$CHECK" != "mjpg_streamer" ]; then
+					echo "Dead mjpg_streamer with PID $PID"
+					EVERYBODYONLINE=0
+				fi
+			done
+			if [ $EVERYBODYONLINE -ne 1 ]; then
+				break
+			fi
+			sleep 5
+		done
+	done
+else
+	while [ 1 ]; do
+		DEVICES=`ls -1 /dev/video?`
+		DEVLIST=""
+		PID=""
+		for d in $DEVICES;
+		do
+			if [ -z "$DEVLIST" ]; then
+				DEVLIST="$d"
+			else
+				DEVLIST="$DEVLIST,$d"
 			fi
 		done
-		if [ $EVERYBODYONLINE -ne 1 ]; then
-			break
-		fi
-		sleep 5
+		INPUTARG="/usr/lib/input_uvc.so -d $DEVLIST $VIDARGS -p 3001"
+		OUTPUTARG="/usr/lib/output_http.so -p 8090"
+		LOG="/var/log/mjpg_streamer$NUM.log"
+		$DAEMON -i "$INPUTARG" -o "$OUTPUTARG" > $LOG 2>&1 &
+		PID=$!
+		echo "New mjpg_streamer for $DEVLIST with PID $PID"
+
+		while [ 1 ]; do
+			CHECK=`ps --pid $PID --no-headers | awk '{print $4}'`
+			if [ "$CHECK" != "mjpg_streamer" ]; then
+				echo "Dead mjpg_streamer with PID $PID"
+				break
+			fi
+			sleep 5
+		done
 	done
-done
+fi

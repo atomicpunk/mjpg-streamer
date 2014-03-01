@@ -46,7 +46,7 @@ set -e
 
 do_start()
 {
-	$DAEMON > /var/log/webcam-manager.log 2>&1 &
+	$DAEMON --singlestream > /var/log/webcam-manager.log 2>&1 &
 }
 
 do_stop()
