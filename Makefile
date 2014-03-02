@@ -158,7 +158,7 @@ install: all
 	install --mode=644 $(PLUGINS) $(DESTDIR)/lib
 	install --mode=755 webcam-manager $(DESTDIR)/bin
 	install --mode=755 webcam.$(PLATFORM) /etc/init.d/webcam
-	update-rc.d webcam start 90 2 3 4 5 . stop 90 0 1 6 .
+	update-rc.d webcam start 99 2 3 4 5 . stop 99 0 1 6 .
 
 # remove the files installed above
 uninstall:

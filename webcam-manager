@@ -29,8 +29,8 @@ if [ -e "/var/lock/webcam" ]; then
 fi
 touch "/var/lock/webcam"
 
-if [ $# -gt 1 ]; then
-	echo "USAGE: webcam-manager [--singlestream]"
+if [ $# -gt 3 ]; then
+	echo "USAGE: webcam-manager [--singlestream] [--waitfordevs <numdevs>]"
 	exit
 fi
 
@@ -38,10 +38,35 @@ DAEMON="/usr/bin/mjpg_streamer"
 VIDARGS="-r 1280x720 -f 12"
 # multi: run as many mjpg_streamers as there are camera devices
 STREAM="multi"
+WAIT=0
 
-if [ $# -eq 1 -a "$1" = "--singlestream" ]; then
-	# single: run a single mjpg_streamer multiplexing all cameras
-	STREAM="single"
+while [ "$1" ] ; do
+	if [ "$1" = "--singlestream" ]; then
+		# single: run a single mjpg_streamer multiplexing all cameras
+		STREAM="single"
+	elif [ "$1" = "--waitfordevs" ]; then
+		shift
+		if [ "$1" ]; then
+			WAIT=`expr $1`
+		else
+			echo "ERROR: --waitfordevs missing argument"
+			exit
+		fi
+	else
+		echo "What the hell is this? -> $1"
+		echo "USAGE: webcam-manager [--singlestream] [--waitfordevs <numdevs>]"
+		exit
+	fi
+	shift
+done
+
+if [ $WAIT -gt 0 ]; then
+	let WAIT=WAIT-1
+	for i in `seq 0 $WAIT`; do
+		while [ ! -e "/dev/video$i" ]; do
+			sleep 1
+		done
+	done
 fi
 
 if [ $STREAM = "multi" ]; then
