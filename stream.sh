@@ -43,6 +43,6 @@ if [ $# -ge 3 ]; then
 	PORT=$1
 fi
 
-./mjpg_streamer -i "$LOC/plugins/input_uvc/input_uvc.so -d /dev/video0 -r $RES -f $FPS" \
+./mjpg_streamer -i "$LOC/plugins/input_uvc/input_uvc.so -d /dev/video0 -r $RES -f $FPS -yuv" \
 -o "$LOC/plugins/output_file/output_file.so" \
 -o "$LOC/plugins/output_http/output_http.so -p $PORT"

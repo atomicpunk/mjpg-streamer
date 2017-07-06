@@ -35,7 +35,7 @@ if [ $# -gt 3 ]; then
 fi
 
 DAEMON="/usr/bin/mjpg_streamer"
-VIDARGS="-r 1280x720 -f 12"
+VIDARGS="-r 1280x720 -f 12 -yuv"
 # multi: run as many mjpg_streamers as there are camera devices
 STREAM="multi"
 WAIT=0
